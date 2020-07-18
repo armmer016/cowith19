@@ -29,6 +29,7 @@ dependencies:
   charts_flutter: ^0.9.0
   http: ^0.12.1
   webview_flutter: ^0.3.22+1
+  flutter_bloc: ^5.0.1
   
 
 

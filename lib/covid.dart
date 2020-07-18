@@ -1,8 +1,12 @@
 import 'dart:convert';
 
+import 'package:cowith19/bloc/imgfeed_bloc.dart';
+import 'package:cowith19/bloc/imgfeed_event.dart';
+
 import 'package:cowith19/main.dart';
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:cowith19/ObjectCovid.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +15,8 @@ import 'package:flutter/services.dart';
 
 import 'package:cowith19/Feed.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import 'bloc/imgfeed_bloc.dart';
 
 class Covid19 extends StatefulWidget {
   _Covid19 createState() => _Covid19();
@@ -41,6 +47,8 @@ class TimelineData {
 }
 
 class _Covid19 extends State<Covid19> {
+  ImgfeedBloc _imgfeedBlock;
+
   String user = 'none';
   int totalRecovered = 0;
   int totalDeaths = 0;
@@ -81,10 +89,26 @@ class _Covid19 extends State<Covid19> {
             .get('https://api.thevirustracker.com/free-api?global=stats');
 
         if (res.statusCode == 200) {
-          //print(res.body);
+          // print(res.body);
           var resp = res.body;
           //print(json.decode(resp));
+          if (resp.contains("<br ")) {
+            var temp = resp.split('\n');
+            temp.removeAt(0);
+            temp.removeAt(0);
+            temp.removeAt(0);
+            temp.removeAt(0);
+            //temp.removeAt(0);
+            //print(temp.toList());
+            resp = "";
+            for (var item in temp) {
+              resp += item;
+            }
+            // print(resp);
+          }
+          // print('1');
           Map parsed = json.decode(resp);
+          // print('2');
           covidWorld = ObjectCovid.fromJson(parsed);
           //print(covidWorld.results.map((e) => e));
           totalRecovered = covidWorld.results[0].totalRecovered;
@@ -145,19 +169,35 @@ class _Covid19 extends State<Covid19> {
         if (res.statusCode == 200) {
           //print(res.body);
           var resp = res.body;
-          //print(json.decode(resp));
-          Map parsed = json.decode(resp);
+
+          if (resp.contains("<br ")) {
+            var temp = resp.split('\n');
+            temp.removeAt(0);
+            temp.removeAt(0);
+            temp.removeAt(0);
+            temp.removeAt(0);
+            temp.removeAt(0);
+            //print(temp.toList());
+            resp = "";
+            for (var item in temp) {
+              resp += item;
+            }
+            //print(resp);
+          }
+
+          //Map parsed = json.decode(resp);
           //debugPrint(parsed.toString());
 
-          var split = parsed.toString().split(',');
+          var split = resp.toString().split(',');
           dynamic nCase, nDeath, total;
           //extract json timeline
           int index = 0;
           for (var a in split) {
-            if (a.contains('new_daily_cases:')) {
+            print(a);
+            if (a.contains('new_daily_cases')) {
               index++;
               //RegExp reg = new RegExp('([0-9]+/[0-9]+/[0-9]+)');
-              RegExp reg2 = new RegExp('new_daily_cases: ([0-9]+)');
+              RegExp reg2 = new RegExp(':([0-9]+)');
 
               //final t = reg.firstMatch(a);
               final t2 = reg2.firstMatch(a);
@@ -170,14 +210,14 @@ class _Covid19 extends State<Covid19> {
               continue;
               //print(date+ ' '+nCase);
             }
-            if (a.contains('new_daily_deaths:')) {
+            if (a.contains('new_daily_deaths')) {
               RegExp reg = new RegExp('([0-9]+)');
               final t = reg.firstMatch(a);
               nDeath = t.group(1);
               continue;
               //print(nDeath+",");
             }
-            if (a.contains('total_cases:')) {
+            if (a.contains('total_cases')) {
               RegExp reg = new RegExp('([0-9]+)');
               final t = reg.firstMatch(a);
               total = t.group(1);
@@ -206,6 +246,7 @@ class _Covid19 extends State<Covid19> {
         setState(() {
           pieLoading = false;
           setUpLine();
+          //countryData = countryData;
         });
       }
     } catch (e) {
@@ -214,39 +255,52 @@ class _Covid19 extends State<Covid19> {
   }
 
   void setUpLine() {
-    _seriesChartData.clear();
-    if (blue)
-      _seriesChartData.add(charts.Series(
-        data: countryData,
-        colorFn: (datum, index) => charts.MaterialPalette.blue.shadeDefault,
-        domainFn: (TimelineData data, index) => data.day,
-        measureFn: (TimelineData data, index) => data.newCases,
-        labelAccessorFn: (TimelineData data, index) =>
-            '${data.newDeaths} : ${format.format(data.newCases)} ราย',
-        id: 'ติดเชื้อรายใหม่',
-      ));
-    if (green)
-      _seriesChartData.add(charts.Series(
-        data: countryData,
-        colorFn: (datum, index) => charts.MaterialPalette.green.shadeDefault,
-        domainFn: (TimelineData data, index) => data.day,
-        measureFn: (TimelineData data, index) => data.newDeaths,
-        labelAccessorFn: (TimelineData data, index) =>
-            '${data.newDeaths} : ${format.format(data.newCases)} ราย',
-        id: 'ตายรายใหม่',
-      ));
+    //_seriesChartData.clear();
+    // _imgfeedBlock.add(ImgfeedEvent.add(
+    //     countryData,
+    //     charts.Series(
+    //       data: countryData,
+    //       colorFn: (datum, index) =>
+    //           charts.MaterialPalette.deepOrange.shadeDefault,
+    //       domainFn: (TimelineData data, index) => data.day,
+    //       measureFn: (TimelineData data, index) => data.totalCases,
+    //       labelAccessorFn: (TimelineData data, index) =>
+    //           '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+    //       id: 'ติดเชื้อ',
+    //     )));
 
-    if (red)
-      _seriesChartData.add(charts.Series(
-        data: countryData,
-        colorFn: (datum, index) =>
-            charts.MaterialPalette.deepOrange.shadeDefault,
-        domainFn: (TimelineData data, index) => data.day,
-        measureFn: (TimelineData data, index) => data.totalCases,
-        labelAccessorFn: (TimelineData data, index) =>
-            '${data.newDeaths} : ${format.format(data.newCases)} ราย',
-        id: 'ติดเชื้อ',
-      ));
+    // if (blue)
+    //   _seriesChartData.add(charts.Series(
+    //     data: countryData,
+    //     colorFn: (datum, index) => charts.MaterialPalette.blue.shadeDefault,
+    //     domainFn: (TimelineData data, index) => data.day,
+    //     measureFn: (TimelineData data, index) => data.newCases,
+    //     labelAccessorFn: (TimelineData data, index) =>
+    //         '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+    //     id: 'ติดเชื้อรายใหม่',
+    //   ));
+    // if (green)
+    //   _seriesChartData.add(charts.Series(
+    //     data: countryData,
+    //     colorFn: (datum, index) => charts.MaterialPalette.green.shadeDefault,
+    //     domainFn: (TimelineData data, index) => data.day,
+    //     measureFn: (TimelineData data, index) => data.newDeaths,
+    //     labelAccessorFn: (TimelineData data, index) =>
+    //         '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+    //     id: 'ตายรายใหม่',
+    //   ));
+
+    // if (red)
+    //   _seriesChartData.add(charts.Series(
+    //     data: countryData,
+    //     colorFn: (datum, index) =>
+    //         charts.MaterialPalette.deepOrange.shadeDefault,
+    //     domainFn: (TimelineData data, index) => data.day,
+    //     measureFn: (TimelineData data, index) => data.totalCases,
+    //     labelAccessorFn: (TimelineData data, index) =>
+    //         '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+    //     id: 'ติดเชื้อ',
+    //   ));
   }
 
   void dispose() {
@@ -256,6 +310,7 @@ class _Covid19 extends State<Covid19> {
 
   void initState() {
     super.initState();
+    _imgfeedBlock = ImgfeedBloc();
     SystemChrome.setEnabledSystemUIOverlays([SystemUiOverlay.bottom]);
     FirebaseAuth.instance.currentUser().then((value) {
       user = value.email.toString();
@@ -274,7 +329,7 @@ class _Covid19 extends State<Covid19> {
     _seriesPieData = List<charts.Series<WorldData, dynamic>>();
   }
 
-  Widget pageView() {
+  Widget pageView(BuildContext context) {
     return PageView(
       onPageChanged: (value) {
         setState(() {
@@ -327,39 +382,88 @@ class _Covid19 extends State<Covid19> {
                                       )
                                     ]),
                               )
-                            : charts.LineChart(
-                                _seriesChartData,
-                                animate: true,
-                                animationDuration: Duration(milliseconds: 300),
-                                defaultRenderer: new charts.LineRendererConfig(
-                                    includeArea: false,
-                                    stacked: false,
-                                    strokeWidthPx: 3),
-                                behaviors: [
-                                  //new charts.PanBehavior(),
-                                  new charts.PanAndZoomBehavior(),
-                                  new charts.SeriesLegend(
-                                      position: charts.BehaviorPosition.top,
-                                      entryTextStyle:
-                                          charts.TextStyleSpec(fontSize: 9)),
-                                  new charts.ChartTitle(
-                                    'วัน',
-                                    behaviorPosition:
-                                        charts.BehaviorPosition.bottom,
-                                    titleOutsideJustification: charts
-                                        .OutsideJustification.middleDrawArea,
-                                  ),
-                                  new charts.ChartTitle(
-                                    'ราย',
-                                    titleStyleSpec:
-                                        charts.TextStyleSpec(fontSize: 14),
-                                    behaviorPosition:
-                                        charts.BehaviorPosition.start,
-                                    titleOutsideJustification: charts
-                                        .OutsideJustification.middleDrawArea,
-                                  ),
-                                ],
-                              )),
+                            : PageView(
+                                scrollDirection: Axis.horizontal,
+                                children: [
+                                    BlocConsumer<ImgfeedBloc,
+                                        List<charts.Series<TimelineData, int>>>(
+                                      buildWhen: (previous, current) {
+                                        return true;
+                                      },
+                                      listener: (context, state) {
+                                        print('added');
+                                      },
+                                      builder: (context, _seriesChartDataa) {
+                                        //print(_seriesChartDataa.toList());
+                                        return charts.LineChart(
+                                          _seriesChartDataa,
+                                          animate: true,
+                                          animationDuration:
+                                              Duration(milliseconds: 300),
+                                          defaultRenderer:
+                                              new charts.LineRendererConfig(
+                                                  includeArea: false,
+                                                  stacked: false,
+                                                  strokeWidthPx: 3),
+                                          behaviors: [
+                                            //new charts.PanBehavior(),
+                                            new charts.PanAndZoomBehavior(),
+                                            new charts.SeriesLegend(
+                                                position:
+                                                    charts.BehaviorPosition.top,
+                                                entryTextStyle:
+                                                    charts.TextStyleSpec(
+                                                        fontSize: 9)),
+                                            new charts.ChartTitle(
+                                              'วัน',
+                                              behaviorPosition: charts
+                                                  .BehaviorPosition.bottom,
+                                              titleOutsideJustification: charts
+                                                  .OutsideJustification
+                                                  .middleDrawArea,
+                                            ),
+                                            new charts.ChartTitle(
+                                              'ราย',
+                                              titleStyleSpec:
+                                                  charts.TextStyleSpec(
+                                                      fontSize: 14),
+                                              behaviorPosition:
+                                                  charts.BehaviorPosition.start,
+                                              titleOutsideJustification: charts
+                                                  .OutsideJustification
+                                                  .middleDrawArea,
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                    Center(
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.all(8.0),
+                                            child: Container(
+                                              color: Colors.cyan,
+                                              width: 8,
+                                              height: 38,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: Text(
+                                              ' ติดเชื้อรายใหม่: ${format.format(countryData.last.newCases)} ราย',
+                                              style: TextStyle(
+                                                  fontFamily: 'Slab',
+                                                  fontSize: 32),
+                                              overflow: TextOverflow.ellipsis,
+                                              softWrap: true,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ])),
                   ),
                   dropdownValue.contains('ทั่วโลก')
                       ? Expanded(
@@ -406,6 +510,15 @@ class _Covid19 extends State<Covid19> {
                                               fontSize: 38,
                                               color: Colors.black),
                                         ),
+                                        Text(
+                                          covidWorld != null
+                                              ? 'วันนี้ติดเพิ่ม ${format.format(covidWorld.results[0].totalNewCasesToday)} ราย'
+                                              : 'Error',
+                                          style: TextStyle(
+                                              fontFamily: 'Slab',
+                                              fontSize: 28,
+                                              color: Colors.lightGreen[300]),
+                                        ),
                                       ],
                                     )),
                                 margin: EdgeInsets.all(10),
@@ -437,7 +550,7 @@ class _Covid19 extends State<Covid19> {
                                               color: Colors.white,
                                             ),
                                             Text(
-                                              ' เสียชีวิตแล้ว',
+                                              ' เสียชี��ิตแล้ว',
                                               style: TextStyle(
                                                   fontFamily: 'Slab',
                                                   fontSize: 34,
@@ -635,22 +748,22 @@ class _Covid19 extends State<Covid19> {
                           context,
                           MaterialPageRoute(
                               builder: (context) => Scaffold(
-                              
-                              body: 
-                                 SafeArea(
-                                  child: WebView(
-                                        initialUrl: 
-                                        //'https://www.google.com',
-                                        livefeed.livefeed.feeds[index].link.toString(),
-                                        javascriptMode: JavascriptMode.unrestricted,
+                                    body: SafeArea(
+                                      child: WebView(
+                                        initialUrl:
+                                            //'https://www.google.com',
+                                            livefeed.livefeed.feeds[index].link
+                                                .toString(),
+                                        javascriptMode:
+                                            JavascriptMode.unrestricted,
                                       ),
-                                 ),
-                              )));
+                                    ),
+                                  )));
                     },
                     child: LimitedBox(
-                      maxHeight: MediaQuery.of(context).size.height / 2,
+                      maxHeight: MediaQuery.of(context).size.height / 2.3,
                       child: Container(
-                        margin: EdgeInsets.all(8),
+                        margin: EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(19),
                           image: DecorationImage(
@@ -679,164 +792,225 @@ class _Covid19 extends State<Covid19> {
   }
 
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(30),
-        child: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.pink,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              IconButton(
-                  icon: Icon(
-                    Icons.person_outline,
-                    size: 22,
-                  ),
-                  onPressed: () async {
-                    final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-                    await _firebaseAuth.signOut().then((value) =>
-                        Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => MyHomePage())));
-                  }),
-              Text(
-                'user: $user',
-                style: TextStyle(
-                    fontFamily: 'Slab',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w100),
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: Stack(children: [
-        pageView(),
-        AnimatedCrossFade(
-          firstCurve: Curves.easeIn,
-          secondCurve: Curves.easeInOut,
-          crossFadeState: currentPage == 0
-              ? CrossFadeState.showFirst
-              : CrossFadeState.showSecond,
-          duration: Duration(milliseconds: 400),
-          firstChild: Row(
-            children: [
-              Expanded(
-                child: Container(
-                  margin: EdgeInsets.only(top: 10, left: 10, right: 10),
-                  alignment: Alignment.topCenter,
-                  //width: 300,
-                  height: 45,
-                  decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: Colors.pink[300]),
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 8, right: 8),
-                    child: DropdownButton<String>(
-                        underline: new Container(),
-                        isExpanded: true,
-                        dropdownColor: Colors.white,
-                        value: dropdownValue,
-                        icon: Icon(Icons.my_location, color: Colors.white),
-                        iconSize: 28,
-                        elevation: 40,
-                        style: TextStyle(color: Colors.white),
-                        onChanged: (String newValue) {
-                          //test
-
-                          setState(() {
-                            dropdownValue = newValue;
-                          });
-                          getWorldCovid();
-                        },
-                        items: <dynamic>[
-                          'สถานการณ์ทั่วโลก',
-                          'ประเทศไทย',
-                          'ประเทศอเมริกา',
-                          'ประเทศญี่ปุ่น',
-                          'ประเทศอินเดีย',
-                          'ประเทศจีน',
-                          'ประเทศบราซิล',
-                          'ประเทศรัสเซีย',
-                          'ประเทศเยอรมัน',
-                        ].map<DropdownMenuItem<String>>((dynamic value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value,
-                              style: TextStyle(
-                                  fontFamily: 'Slab',
-                                  fontSize: 22,
-                                  color: Colors.black),
-                            ),
-                          );
-                        }).toList()),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          secondChild: Container(
-            alignment: Alignment.topCenter,
-            width: double.infinity,
-            height: 1,
-            color: Colors.transparent,
-          ),
-        ),
-        dropdownValue.contains('ทั่วโลก')
-            ? Container()
-            : Container(
-                margin: EdgeInsets.all(15),
-                alignment: Alignment.bottomCenter,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    FloatingActionButton(
-                      child: Icon(
-                        Icons.sentiment_very_dissatisfied,
-                        size: 40,
+    return BlocProvider<ImgfeedBloc>(
+        create: (context) => _imgfeedBlock,
+        child: Scaffold(
+          appBar: PreferredSize(
+            preferredSize: Size.fromHeight(30),
+            child: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.pink,
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  IconButton(
+                      icon: Icon(
+                        Icons.person_outline,
+                        size: 22,
                       ),
-                      heroTag: '1',
-                      backgroundColor: green ? Colors.green : Colors.grey,
-                      onPressed: () {
-                        green ? green = false : green = true;
-
-                        setUpLine();
-                        setState(() {});
-                      },
-                    ),
-                    SizedBox(
-                      width: 20,
-                    ),
-                    FloatingActionButton(
-                      child: Icon(Icons.mood_bad, size: 40),
-                      heroTag: '2',
-                      backgroundColor: red ? Colors.deepOrange : Colors.grey,
-                      onPressed: () {
-                        red ? red = false : red = true;
-                        setUpLine();
-                        setState(() {});
-                      },
-                    ),
-                    SizedBox(
-                      width: 20,
-                    ),
-                    FloatingActionButton(
-                      child: Icon(Icons.sentiment_dissatisfied, size: 40),
-                      heroTag: '3',
-                      backgroundColor: blue ? Colors.blue : Colors.grey,
-                      onPressed: () {
-                        blue ? blue = false : blue = true;
-                        setUpLine();
-                        setState(() {});
-                      },
-                    ),
-                  ],
-                ),
+                      onPressed: () async {
+                        final FirebaseAuth _firebaseAuth =
+                            FirebaseAuth.instance;
+                        await _firebaseAuth.signOut().then((value) =>
+                            Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => MyHomePage())));
+                      }),
+                  Text(
+                    'user: $user',
+                    style: TextStyle(
+                        fontFamily: 'Slab',
+                        fontSize: 16,
+                        fontWeight: FontWeight.w100),
+                  ),
+                ],
               ),
-      ]),
-    );
+            ),
+          ),
+          body: Stack(children: [
+            pageView(context),
+            AnimatedCrossFade(
+              firstCurve: Curves.easeIn,
+              secondCurve: Curves.easeInOut,
+              crossFadeState: currentPage == 0
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              duration: Duration(milliseconds: 400),
+              firstChild: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      margin: EdgeInsets.only(top: 10, left: 10, right: 10),
+                      alignment: Alignment.topCenter,
+                      //width: 300,
+                      height: 45,
+                      decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: Colors.pink[300]),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8, right: 8),
+                        child: DropdownButton<String>(
+                            underline: new Container(),
+                            isExpanded: true,
+                            dropdownColor: Colors.white,
+                            value: dropdownValue,
+                            icon: Icon(Icons.my_location, color: Colors.white),
+                            iconSize: 28,
+                            elevation: 40,
+                            style: TextStyle(color: Colors.white),
+                            onChanged: (String newValue) {
+                              //test
+
+                              setState(() {
+                                dropdownValue = newValue;
+                              });
+                              getWorldCovid();
+                            },
+                            items: <dynamic>[
+                              'สถานการณ์ทั่วโลก',
+                              'ประเทศไทย',
+                              'ประเทศอเมริกา',
+                              'ประเทศญี่ปุ่น',
+                              'ประเทศอินเดีย',
+                              'ประเทศจีน',
+                              'ประเทศบราซิล',
+                              'ประเทศรัสเซีย',
+                              'ประเทศเยอรมัน',
+                            ].map<DropdownMenuItem<String>>((dynamic value) {
+                              return DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value,
+                                  style: TextStyle(
+                                      fontFamily: 'Slab',
+                                      fontSize: 22,
+                                      color: Colors.black),
+                                ),
+                              );
+                            }).toList()),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              secondChild: Container(
+                alignment: Alignment.topCenter,
+                width: double.infinity,
+                height: 1,
+                color: Colors.transparent,
+              ),
+            ),
+            dropdownValue.contains('ทั่วโลก')
+                ? Container()
+                : Container(
+                    margin: EdgeInsets.all(15),
+                    alignment: Alignment.bottomCenter,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        FloatingActionButton(
+                          child: Icon(
+                            Icons.sentiment_very_dissatisfied,
+                            size: 40,
+                          ),
+                          heroTag: '1',
+                          backgroundColor: green ? Colors.green : Colors.grey,
+                          onPressed: () {
+                            green ? green = false : green = true;
+                            if (green)
+                              _imgfeedBlock.add(ImgfeedEvent.add(
+                                  countryData,
+                                  charts.Series(
+                                    data: countryData,
+                                    colorFn: (datum, index) => charts
+                                        .MaterialPalette.green.shadeDefault,
+                                    domainFn: (TimelineData data, index) =>
+                                        data.day,
+                                    measureFn: (TimelineData data, index) =>
+                                        data.newDeaths,
+                                    labelAccessorFn: (TimelineData data,
+                                            index) =>
+                                        '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+                                    id: 'ตายรายใหม่',
+                                  )));
+                              else
+                                _imgfeedBlock.add(ImgfeedEvent.delete("ตายรายใหม่"));
+                            //setUpLine();
+                            setState(() {});
+                          },
+                        ),
+                        SizedBox(
+                          width: 20,
+                        ),
+                        FloatingActionButton(
+                          child: Icon(Icons.mood_bad, size: 40),
+                          heroTag: '2',
+                          backgroundColor:
+                              red ? Colors.deepOrange : Colors.grey,
+                          onPressed: () {
+                            var a = charts.Series(
+                              data: countryData,
+                              colorFn: (datum, index) => charts
+                                  .MaterialPalette.deepOrange.shadeDefault,
+                              domainFn: (TimelineData data, index) => data.day,
+                              measureFn: (TimelineData data, index) =>
+                                  data.totalCases,
+                              labelAccessorFn: (TimelineData data, index) =>
+                                  '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+                              id: 'ติดเชื้อ',
+                            );
+                            if (!red) {
+                              //print('false');
+                              _imgfeedBlock
+                                  .add(ImgfeedEvent.add(countryData, a));
+                            } else {
+                              //print('true');
+                              _imgfeedBlock
+                                  .add(ImgfeedEvent.delete("ติดเชื้อ"));
+                            }
+                            //setUpLine();
+                            red ? red = false : red = true;
+                            setState(() {});
+                          },
+                        ),
+                        SizedBox(
+                          width: 20,
+                        ),
+                        FloatingActionButton(
+                          child: Icon(Icons.sentiment_dissatisfied, size: 40),
+                          heroTag: '3',
+                          backgroundColor: blue ? Colors.blue : Colors.grey,
+                          onPressed: () {
+                            blue ? blue = false : blue = true;
+                            //setUpLine();
+                            if (blue)
+                              _imgfeedBlock.add(ImgfeedEvent.add(
+                                  countryData,
+                                  charts.Series(
+                                    data: countryData,
+                                    colorFn: (datum, index) => charts
+                                        .MaterialPalette.blue.shadeDefault,
+                                    domainFn: (TimelineData data, index) =>
+                                        data.day,
+                                    measureFn: (TimelineData data, index) =>
+                                        data.newCases,
+                                    labelAccessorFn: (TimelineData data,
+                                            index) =>
+                                        '${data.newDeaths} : ${format.format(data.newCases)} ราย',
+                                    id: 'ติดเชื้อรายใหม่',
+                                  )));
+                            else {
+                              _imgfeedBlock
+                                  .add(ImgfeedEvent.delete("ติดเชื้อรายใหม่"));
+                            }
+                            setState(() {});
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+          ]),
+        ));
   }
 }
